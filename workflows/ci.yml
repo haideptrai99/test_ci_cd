@@ -1,0 +1,49 @@
+name: CI
+
+# Kích hoạt khi đẩy mã lên main hoặc tạo/cập nhật pull request
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch: # Cho phép kích hoạt thủ công trên giao diện GitHub
+
+# Bảo mật: Giới hạn quyền của GITHUB_TOKEN ở mức chỉ đọc
+permissions:
+  contents: read
+
+# Tối ưu tài nguyên: Hủy job cũ nếu có commit mới đẩy lên cùng PR/nhánh (trừ nhánh main)
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+jobs:
+  test:
+    name: Test (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10 # Ngắt tự động nếu test bị treo quá 10 phút
+
+    strategy:
+      fail-fast: false # Không hủy các bản Python khác nếu 1 bản bị lỗi
+      matrix:
+        python-version: ['3.11', '3.12', '3.13']
+
+    steps:
+      - name: Tải mã nguồn
+        uses: actions/checkout@v4
+
+      - name: Cài đặt Python ${{ matrix.python-version }} & Cache
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: 'pip' # Tự động cache thư mục pip dựa trên requirements.txt
+          cache-dependency-path: '**/requirements*.txt'
+
+      - name: Cài đặt phụ thuộc
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Chạy kiểm thử Pytest
+        run: |
+          pytest -v --tb=short --maxfail=5

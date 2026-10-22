@@ -1,4 +1,5 @@
 import pytest
+
 from src.math_utils import factorial
 
 
